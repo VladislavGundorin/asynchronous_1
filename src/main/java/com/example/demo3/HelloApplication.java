@@ -3,6 +3,7 @@ package com.example.demo3;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.scene.Scene;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
@@ -15,8 +16,6 @@ public class HelloApplication extends Application {
     private static final int BUFFER_SIZE = 5;
     private static final int TOTAL_OPERATIONS = 15;
     private BlockingQueue<String> buffer = new ArrayBlockingQueue<>(BUFFER_SIZE);
-    private Circle producerCircle;
-    private Circle consumerCircle;
     private int producerCount = 0;
     private int consumerCount = 0;
 
@@ -26,23 +25,33 @@ public class HelloApplication extends Application {
 
     @Override
     public void start(Stage primaryStage) {
-        primaryStage.setTitle("Producer-Consumer Simulation");
+        primaryStage.setTitle("Producer-Consumer");
 
-        producerCircle = createCircle(Color.GREEN);
-        consumerCircle = createCircle(Color.RED);
+        Circle producerCircle = createCircle(Color.GREEN);
+        Circle consumerCircle = createCircle(Color.RED);
+
+        HBox hbox = new HBox(20);
+        hbox.getChildren().addAll(producerCircle, consumerCircle);
 
         StackPane root = new StackPane();
-        root.getChildren().addAll(producerCircle, consumerCircle);
+        root.getChildren().add(hbox);
 
-        primaryStage.setScene(new Scene(root, 300, 250));
+        Scene scene = new Scene(root, 300, 250);
+        primaryStage.setScene(scene);
         primaryStage.show();
 
-
-        Thread producerThread = new Thread(this::produce);
-        Thread consumerThread = new Thread(this::consume);
+        Thread producerThread = new Thread(() -> produce(producerCircle));
+        Thread consumerThread = new Thread(() -> consume(consumerCircle));
 
         producerThread.start();
         consumerThread.start();
+
+
+        primaryStage.setOnCloseRequest(event -> {
+            producerThread.interrupt();
+            consumerThread.interrupt();
+            Platform.exit();
+        });
     }
 
     private Circle createCircle(Color color) {
@@ -52,41 +61,48 @@ public class HelloApplication extends Application {
         return circle;
     }
 
-    private void produce() {
+    private void produce(Circle circle) {
         while (producerCount < TOTAL_OPERATIONS) {
             try {
                 String product = "Product #" + Math.random();
+                Thread.sleep((long) (Math.random() * 1000));
+                Platform.runLater(() -> circle.setFill(Color.BLUE));
+                Thread.sleep(5);
                 buffer.put(product);
 
                 System.out.println("Produced: " + product);
 
-                Platform.runLater(() -> producerCircle.setFill(Color.GREEN));
-                Thread.sleep(500);
+                Platform.runLater(() -> circle.setFill(Color.GREEN));
+                Thread.sleep(5);
 
-                Platform.runLater(() -> producerCircle.setFill(Color.TRANSPARENT));
+                Platform.runLater(() -> circle.setFill(Color.TRANSPARENT));
                 Thread.sleep((long) (Math.random() * 2000));
                 producerCount++;
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                Thread.currentThread().interrupt();
+                return;
             }
         }
     }
 
-    private void consume() {
+    private void consume(Circle rectangle) {
         while (consumerCount < TOTAL_OPERATIONS) {
             try {
+                Platform.runLater(() -> rectangle.setFill(Color.RED));
+                Thread.sleep(5);
+
                 String product = buffer.take();
+                Platform.runLater(() -> rectangle.setFill(Color.GREEN));
+                Thread.sleep(5);
 
                 System.out.println("Consumed: " + product);
 
-                Platform.runLater(() -> consumerCircle.setFill(Color.RED));
-                Thread.sleep(500);
-
-                Platform.runLater(() -> consumerCircle.setFill(Color.TRANSPARENT));
-                Thread.sleep((long) (Math.random() * 2000));
+                Platform.runLater(() -> rectangle.setFill(Color.TRANSPARENT));
+                Thread.sleep((long) (Math.random() * 2000)+1000);
                 consumerCount++;
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                Thread.currentThread().interrupt();
+                return;
             }
         }
         Platform.exit();
